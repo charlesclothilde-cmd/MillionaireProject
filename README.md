@@ -25,13 +25,7 @@ The public Streamlit app is available at:
 https://millionaireproject.streamlit.app/
 ```
 
-The repo also includes a free GitHub Pages landing page in `index.html`. To publish it:
-
-1. Push this repository to GitHub.
-2. Open the repository settings.
-3. Go to **Pages**.
-4. Set the source to deploy from the `main` branch and the repository root.
-5. Save the settings and use the generated `github.io` URL as the free landing page.
+The repo also includes a free GitHub Pages landing page in `index.html`. 
 
 ## Run The App Locally
 
