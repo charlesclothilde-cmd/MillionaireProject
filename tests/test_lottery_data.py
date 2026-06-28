@@ -11,8 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lottery_data import (  # noqa: E402
     NO_PRIZE_TIER,
     TICKET_COST_GBP,
+    analyse_ticket_behavior,
     backtest_strategies,
     estimated_prize_value,
+    generate_anti_crowd_tickets,
     normalize_draws,
     prize_value_table,
     prize_tier,
@@ -116,6 +118,31 @@ class LotteryDataTests(unittest.TestCase):
 
         tier_values = summarise_prize_tier_values(results)
         self.assertIn("Total prize value", tier_values.columns)
+
+    def test_behavioral_ticket_scoring_flags_human_like_patterns(self):
+        human_like = analyse_ticket_behavior([7, 11, 21, 22, 30], [3, 7])
+        anti_crowd = analyse_ticket_behavior([32, 37, 41, 46, 49], [1, 12])
+
+        self.assertGreater(human_like.crowding_risk_score, anti_crowd.crowding_risk_score)
+        self.assertGreater(human_like.birthday_bias_score, anti_crowd.birthday_bias_score)
+        self.assertGreater(human_like.lucky_number_score, anti_crowd.lucky_number_score)
+        self.assertAlmostEqual(human_like.anti_popularity_score, 1 - human_like.crowding_risk_score)
+
+    def test_generate_anti_crowd_tickets_returns_valid_low_risk_tickets(self):
+        tickets = generate_anti_crowd_tickets(count=3, simulations=100, random_seed=7)
+
+        self.assertEqual(len(tickets), 3)
+        self.assertEqual(
+            [ticket.crowding_risk_score for ticket in tickets],
+            sorted(ticket.crowding_risk_score for ticket in tickets),
+        )
+        for ticket in tickets:
+            self.assertEqual(len(ticket.balls), 5)
+            self.assertEqual(len(set(ticket.balls)), 5)
+            self.assertTrue(all(1 <= number <= 50 for number in ticket.balls))
+            self.assertEqual(len(ticket.stars), 2)
+            self.assertEqual(len(set(ticket.stars)), 2)
+            self.assertTrue(all(1 <= number <= 12 for number in ticket.stars))
 
 if __name__ == "__main__":
     unittest.main()

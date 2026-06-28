@@ -103,6 +103,21 @@ class TicketScore:
     spread_score: float
     pair_score: float
 
+
+@dataclass(frozen=True)
+class BehavioralTicketScore:
+    balls: list[int]
+    stars: list[int]
+    crowding_risk_score: float
+    anti_popularity_score: float
+    birthday_bias_score: float
+    lucky_number_score: float
+    round_number_score: float
+    consecutive_score: float
+    decade_cluster_score: float
+    playslip_pattern_score: float
+    star_popularity_score: float
+
 def parse_number_list(value: object) -> list[int]:
     if isinstance(value, list):
         numbers = value
@@ -571,6 +586,91 @@ def generate_random_ticket(rng: random.Random | None = None) -> tuple[list[int],
     balls = sorted(generator.sample(list(BALL_RANGE), BALL_COUNT))
     stars = sorted(generator.sample(list(STAR_RANGE), STAR_COUNT))
     return balls, stars
+
+
+def analyse_ticket_behavior(balls: list[int], stars: list[int]) -> BehavioralTicketScore:
+    _validate_numbers(balls, expected_count=BALL_COUNT, allowed_range=BALL_RANGE, label="Balls")
+    _validate_numbers(stars, expected_count=STAR_COUNT, allowed_range=STAR_RANGE, label="LuckyStars")
+
+    sorted_balls = sorted(balls)
+    sorted_stars = sorted(stars)
+    lucky_numbers = {3, 7, 8, 11, 13, 21, 22, 33}
+    popular_stars = {3, 7, 11}
+
+    birthday_bias_score = sum(number <= 31 for number in sorted_balls) / BALL_COUNT
+    lucky_number_score = (
+        sum(number in lucky_numbers for number in sorted_balls) / BALL_COUNT * 0.75
+        + sum(number in popular_stars for number in sorted_stars) / STAR_COUNT * 0.25
+    )
+    round_number_score = sum(number % 10 == 0 or number == 50 for number in sorted_balls) / BALL_COUNT
+    consecutive_pairs = sum(
+        1 for first, second in zip(sorted_balls, sorted_balls[1:]) if second - first == 1
+    )
+    consecutive_score = consecutive_pairs / (BALL_COUNT - 1)
+
+    decade_counts = Counter((number - 1) // 10 for number in sorted_balls)
+    decade_cluster_score = (max(decade_counts.values()) - 1) / (BALL_COUNT - 1)
+
+    terminal_digit_counts = Counter(number % 10 for number in sorted_balls)
+    same_column_score = (max(terminal_digit_counts.values()) - 1) / (BALL_COUNT - 1)
+    visual_pattern_score = (consecutive_score + decade_cluster_score + same_column_score) / 3
+
+    star_popularity_score = sum(number in popular_stars for number in sorted_stars) / STAR_COUNT
+    crowding_risk_score = (
+        birthday_bias_score * 0.38
+        + lucky_number_score * 0.18
+        + round_number_score * 0.12
+        + visual_pattern_score * 0.22
+        + star_popularity_score * 0.10
+    )
+    crowding_risk_score = max(0.0, min(1.0, crowding_risk_score))
+
+    return BehavioralTicketScore(
+        balls=sorted_balls,
+        stars=sorted_stars,
+        crowding_risk_score=crowding_risk_score,
+        anti_popularity_score=1 - crowding_risk_score,
+        birthday_bias_score=birthday_bias_score,
+        lucky_number_score=lucky_number_score,
+        round_number_score=round_number_score,
+        consecutive_score=consecutive_score,
+        decade_cluster_score=decade_cluster_score,
+        playslip_pattern_score=visual_pattern_score,
+        star_popularity_score=star_popularity_score,
+    )
+
+
+def generate_anti_crowd_tickets(
+    *,
+    count: int = 5,
+    simulations: int = 2000,
+    random_seed: int = 42,
+) -> list[BehavioralTicketScore]:
+    if count <= 0:
+        return []
+
+    rng = random.Random(random_seed)
+    seen: set[tuple[tuple[int, ...], tuple[int, ...]]] = set()
+    scored_tickets: list[BehavioralTicketScore] = []
+
+    while len(scored_tickets) < simulations:
+        balls, stars = generate_random_ticket(rng)
+        key = (tuple(balls), tuple(stars))
+        if key in seen:
+            continue
+        seen.add(key)
+        scored_tickets.append(analyse_ticket_behavior(balls, stars))
+
+    return sorted(
+        scored_tickets,
+        key=lambda ticket: (
+            ticket.crowding_risk_score,
+            ticket.birthday_bias_score,
+            ticket.playslip_pattern_score,
+            ticket.balls,
+            ticket.stars,
+        ),
+    )[:count]
 
 
 def generate_ranked_tickets(

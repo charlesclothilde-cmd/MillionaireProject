@@ -1,16 +1,21 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import random
+
 import pandas as pd
 import streamlit as st
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MultiLabelBinarizer
 
 from lottery_data import (
+    MODEL_VARIANTS,
+    analyse_ticket_behavior,
     backtest_model_ablation,
     backtest_strategies,
     data_freshness_label,
     ensure_backtest_schema,
+    generate_anti_crowd_tickets,
     filter_recent_draws,
     generate_balanced_ticket,
     generate_ranked_tickets,
@@ -58,53 +63,20 @@ recent_draw_count = st.sidebar.slider("Recent draw window", min_value=25, max_va
 st.title("EuroMillions Lucky Ticket Generator")
 st.caption(data_freshness_label(df))
 
-generator_tab, model_tab, research_tab = st.tabs(["Ticket generator", "Model Lab", "Research Lab"])
-
-with generator_tab:
-    mode = st.selectbox(
-        "Generation mode",
-        ["Cluster hot numbers", "Recent hot numbers", "Cold numbers", "Balanced mix"],
-    )
-    top_n = st.slider("Candidate pool size", min_value=5, max_value=20, value=10)
-
-    selected_cluster = None
-    working_df = df
-    candidate_label = ""
-
-    if mode == "Cluster hot numbers":
-        selected_cluster = st.selectbox("Choose a cluster", sorted(df_clustered["Cluster"].unique()))
-        working_df = df_clustered[df_clustered["Cluster"] == selected_cluster]
-        candidates = get_top_numbers(working_df, top_n)
-        candidate_label = f"Cluster {selected_cluster} top numbers"
-    elif mode == "Recent hot numbers":
-        working_df = filter_recent_draws(df, recent_draw_count)
-        candidates = get_top_numbers(working_df, top_n)
-        candidate_label = f"Top numbers from the latest {len(working_df)} dated draws"
-    elif mode == "Cold numbers":
-        candidates = get_cold_numbers(df, top_n)
-        candidate_label = "Least frequent historical numbers"
-    else:
-        working_df = filter_recent_draws(df, recent_draw_count)
-        candidates = get_top_numbers(working_df, top_n)
-        candidate_label = f"Balanced mix using the latest {len(working_df)} dated draws"
-
-    top_balls, top_stars = candidates
-
-    st.subheader(candidate_label)
-    st.markdown(f"**Balls:** {[number for number, _ in top_balls]}")
-    st.markdown(f"**Lucky Stars:** {[number for number, _ in top_stars]}")
-
-    if st.button("Generate My Lucky Ticket!"):
-        if mode == "Balanced mix":
-            balls, stars = generate_balanced_ticket(df, recent_draw_count)
-        else:
-            balls, stars = generate_ticket(candidates)
-        st.success(f"Your Lucky Ticket: Balls {balls} | Stars {stars}")
+generate_tab, analyze_tab, model_tab, backtest_tab, research_tab = st.tabs(
+    ["Generate", "Analyze Ticket", "Model Lab", "Backtesting", "Research Lab"]
+)
 
 
 @st.cache_data
-def ranked_tickets(data, simulations, half_life, top_k):
-    return generate_ranked_tickets(data, simulations=simulations, half_life=half_life, top_k=top_k)
+def ranked_tickets(data, simulations, half_life, top_k, variant_name):
+    return generate_ranked_tickets(
+        data,
+        simulations=simulations,
+        half_life=half_life,
+        top_k=top_k,
+        score_weights=MODEL_VARIANTS.get(variant_name),
+    )
 
 
 @st.cache_data
@@ -169,13 +141,150 @@ def run_ablation(data, training_window, test_draws, simulations, half_life, sche
     )
 
 
+@st.cache_data
+def anti_crowd_tickets(count, simulations, random_seed, schema_version):
+    return generate_anti_crowd_tickets(count=count, simulations=simulations, random_seed=random_seed)
+
+
+with generate_tab:
+    st.subheader("Generate")
+    generation_mode = st.radio(
+        "Generator",
+        [
+            "Best current model",
+            "Anti-crowd",
+            "Balanced mix",
+            "Recent hot numbers",
+            "Cold numbers",
+            "Cluster hot numbers",
+        ],
+        horizontal=True,
+    )
+    generator_seed = st.number_input("Generator seed", min_value=1, max_value=9999, value=42, step=1)
+
+    ticket_balls = None
+    ticket_stars = None
+    model_ticket = None
+    source_rows = []
+
+    if generation_mode == "Best current model":
+        generator_half_life = st.slider(
+            "Generator half-life", min_value=25, max_value=250, value=250, step=25, key="generate_half_life"
+        )
+        generator_simulations = st.slider(
+            "Generator candidates", min_value=250, max_value=5000, value=1000, step=250, key="generate_simulations"
+        )
+        model_ticket = generate_ranked_tickets(
+            df,
+            simulations=generator_simulations,
+            half_life=generator_half_life,
+            top_k=1,
+            random_seed=int(generator_seed),
+            score_weights=MODEL_VARIANTS["No balance score"],
+        )[0]
+        ticket_balls, ticket_stars = model_ticket.balls, model_ticket.stars
+        source_rows = [
+            {"Signal": "Model variant", "Value": "No balance score"},
+            {"Signal": "Model score", "Value": f"{model_ticket.score:.3f}"},
+            {"Signal": "Hot", "Value": f"{model_ticket.hot_score:.3f}"},
+            {"Signal": "Cold", "Value": f"{model_ticket.cold_score:.3f}"},
+            {"Signal": "Spread", "Value": f"{model_ticket.spread_score:.3f}"},
+            {"Signal": "Pairs", "Value": f"{model_ticket.pair_score:.3f}"},
+        ]
+    elif generation_mode == "Anti-crowd":
+        behavior_simulations = st.slider(
+            "Behavior candidates sampled", min_value=250, max_value=5000, value=2000, step=250, key="generate_behavior_simulations"
+        )
+        anti_crowd = anti_crowd_tickets(1, behavior_simulations, int(generator_seed), CACHE_SCHEMA_VERSION)[0]
+        ticket_balls, ticket_stars = anti_crowd.balls, anti_crowd.stars
+        source_rows = [
+            {"Signal": "Crowding risk", "Value": f"{anti_crowd.crowding_risk_score:.1%}"},
+            {"Signal": "Anti-popularity", "Value": f"{anti_crowd.anti_popularity_score:.1%}"},
+            {"Signal": "Birthday bias", "Value": f"{anti_crowd.birthday_bias_score:.1%}"},
+            {"Signal": "Pattern", "Value": f"{anti_crowd.playslip_pattern_score:.1%}"},
+        ]
+    else:
+        top_n = st.slider("Candidate pool size", min_value=5, max_value=20, value=10, key="generate_pool")
+        if generation_mode == "Cluster hot numbers":
+            selected_cluster = st.selectbox("Choose a cluster", sorted(df_clustered["Cluster"].unique()))
+            working_df = df_clustered[df_clustered["Cluster"] == selected_cluster]
+            candidates = get_top_numbers(working_df, top_n)
+        elif generation_mode == "Recent hot numbers":
+            working_df = filter_recent_draws(df, recent_draw_count)
+            candidates = get_top_numbers(working_df, top_n)
+        elif generation_mode == "Cold numbers":
+            candidates = get_cold_numbers(df, top_n)
+        else:
+            candidates = get_top_numbers(filter_recent_draws(df, recent_draw_count), top_n)
+
+        generator_rng = random.Random(int(generator_seed))
+        if generation_mode == "Balanced mix":
+            ticket_balls, ticket_stars = generate_balanced_ticket(df, recent_draw_count, generator_rng)
+        else:
+            ticket_balls, ticket_stars = generate_ticket(candidates, generator_rng)
+        top_balls, top_stars = candidates
+        source_rows = [
+            {"Signal": "Ball pool", "Value": str([number for number, _ in top_balls])},
+            {"Signal": "Star pool", "Value": str([number for number, _ in top_stars])},
+        ]
+
+    if ticket_balls and ticket_stars:
+        behavior = analyse_ticket_behavior(ticket_balls, ticket_stars)
+        st.success(f"Ticket: Balls {ticket_balls} | Lucky Stars {ticket_stars}")
+        col_model, col_crowd, col_anti = st.columns(3)
+        col_model.metric("Model score", f"{model_ticket.score:.3f}" if model_ticket else "n/a")
+        col_crowd.metric("Crowding risk", f"{behavior.crowding_risk_score:.1%}")
+        col_anti.metric("Anti-popularity", f"{behavior.anti_popularity_score:.1%}")
+        st.dataframe(source_rows, use_container_width=True, hide_index=True)
+
+
+with analyze_tab:
+    st.subheader("Analyze a ticket")
+    input_balls = st.multiselect(
+        "Balls", options=list(range(1, 51)), default=[4, 14, 17, 31, 41], max_selections=5, key="analyze_balls"
+    )
+    input_stars = st.multiselect(
+        "Lucky Stars", options=list(range(1, 13)), default=[2, 8], max_selections=2, key="analyze_stars"
+    )
+
+    if len(input_balls) == 5 and len(input_stars) == 2:
+        behavior = analyse_ticket_behavior(input_balls, input_stars)
+        score_cols = st.columns(3)
+        score_cols[0].metric("Crowding risk", f"{behavior.crowding_risk_score:.1%}")
+        score_cols[1].metric("Anti-popularity", f"{behavior.anti_popularity_score:.1%}")
+        score_cols[2].metric("Birthday bias", f"{behavior.birthday_bias_score:.1%}")
+
+        behavior_rows = [
+            {"Signal": "Lucky-number pull", "Score": behavior.lucky_number_score},
+            {"Signal": "Round-number pull", "Score": behavior.round_number_score},
+            {"Signal": "Consecutive run", "Score": behavior.consecutive_score},
+            {"Signal": "Decade clustering", "Score": behavior.decade_cluster_score},
+            {"Signal": "Playslip pattern", "Score": behavior.playslip_pattern_score},
+            {"Signal": "Star popularity", "Score": behavior.star_popularity_score},
+        ]
+        behavior_display = pd.DataFrame(behavior_rows)
+        behavior_display["Score"] = behavior_display["Score"].map(lambda value: f"{value:.1%}")
+        st.dataframe(behavior_display, use_container_width=True, hide_index=True)
+    else:
+        st.warning("Choose exactly five balls and two Lucky Stars.")
+
+    st.caption("Behavior scores estimate common selection patterns. They do not change draw probability.")
+
+
 with model_tab:
     st.subheader("Ranked ticket model")
-    half_life = st.slider("Recency half-life", min_value=25, max_value=250, value=75, step=25)
-    simulations = st.slider("Monte Carlo candidates", min_value=250, max_value=5000, value=1000, step=250)
-    top_k = st.slider("Ranked tickets to show", min_value=3, max_value=10, value=5)
+    model_variant = st.selectbox(
+        "Model variant",
+        ["Full model", "No balance score", "No cold score", "Only balance/spread"],
+        index=1,
+    )
+    half_life = st.slider("Recency half-life", min_value=25, max_value=250, value=250, step=25, key="model_half_life")
+    simulations = st.slider(
+        "Monte Carlo candidates", min_value=250, max_value=5000, value=1000, step=250, key="model_simulations"
+    )
+    top_k = st.slider("Ranked tickets to show", min_value=3, max_value=10, value=5, key="model_top_k")
 
-    tickets = ranked_tickets(df, simulations, half_life, top_k)
+    tickets = ranked_tickets(df, simulations, half_life, top_k, model_variant)
     ticket_rows = [
         {
             "Rank": rank,
@@ -192,10 +301,16 @@ with model_tab:
     ]
     st.dataframe(ticket_rows, use_container_width=True, hide_index=True)
 
+
+with backtest_tab:
     st.subheader("Walk-forward backtest")
-    test_draws = st.slider("Test draw count", min_value=50, max_value=500, value=200, step=50)
-    training_window = st.slider("Minimum training draws", min_value=100, max_value=800, value=300, step=50)
-    backtest_simulations = st.slider("Backtest candidates per draw", min_value=100, max_value=1000, value=300, step=100)
+    test_draws = st.slider("Test draw count", min_value=50, max_value=500, value=200, step=50, key="backtest_draws")
+    training_window = st.slider(
+        "Minimum training draws", min_value=100, max_value=800, value=300, step=50, key="backtest_training"
+    )
+    backtest_simulations = st.slider(
+        "Backtest candidates per draw", min_value=100, max_value=1000, value=300, step=100, key="backtest_simulations"
+    )
 
     results = run_backtest(
         df,
