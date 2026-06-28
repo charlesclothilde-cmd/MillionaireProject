@@ -12,8 +12,10 @@ from lottery_data import (
     save_backtest_run,
     summarise_backtest,
     summarise_match_distribution,
+    summarise_prize_tier_values,
     summarise_repeated_backtests,
     theoretical_expected_matches,
+    theoretical_expected_return,
     theoretical_prize_probabilities,
 )
 
@@ -36,11 +38,14 @@ def main() -> None:
     results = backtest_strategies(df, **config)
     summary = summarise_backtest(results)
     distribution = summarise_match_distribution(results)
+    tier_values = summarise_prize_tier_values(results)
     csv_path, json_path = save_backtest_run(results, output_dir=OUTPUT_DIR, config=config, name="default_backtest")
     summary_path = OUTPUT_DIR / "default_backtest_summary.csv"
     distribution_path = OUTPUT_DIR / "default_match_distribution.csv"
+    tier_values_path = OUTPUT_DIR / "default_prize_tier_values.csv"
     summary.to_csv(summary_path, index=False)
     distribution.to_csv(distribution_path, index=False)
+    tier_values.to_csv(tier_values_path, index=False)
 
     repeated = run_repeated_backtests(
         df,
@@ -79,24 +84,31 @@ def main() -> None:
     )
     ablation_summary = summarise_backtest(ablation)
     ablation_distribution = summarise_match_distribution(ablation)
+    ablation_tier_values = summarise_prize_tier_values(ablation)
     ablation_path = OUTPUT_DIR / "model_ablation_runs.csv"
     ablation_summary_path = OUTPUT_DIR / "model_ablation_summary.csv"
     ablation_distribution_path = OUTPUT_DIR / "model_ablation_distribution.csv"
+    ablation_tier_values_path = OUTPUT_DIR / "model_ablation_prize_tier_values.csv"
     ablation.to_csv(ablation_path, index=False)
     ablation_summary.to_csv(ablation_summary_path, index=False)
     ablation_distribution.to_csv(ablation_distribution_path, index=False)
+    ablation_tier_values.to_csv(ablation_tier_values_path, index=False)
 
     odds_path = OUTPUT_DIR / "theoretical_prize_probabilities.csv"
     theoretical_prize_probabilities().to_csv(odds_path, index=False)
 
     expected = theoretical_expected_matches()
+    expected_return = theoretical_expected_return()
     print(data_freshness_label(df))
     print(f"Default backtest rows: {len(results)}")
     print(f"Theoretical random total matches: {expected['total_matches']:.3f}")
+    print(f"Theoretical random prize EV: £{expected_return['expected_prize_value']:.2f}")
+    print(f"Theoretical random net EV: £{expected_return['expected_net_value']:.2f}")
     print(f"Saved default run: {csv_path}")
     print(f"Saved default JSON: {json_path}")
     print(f"Saved summary: {summary_path}")
     print(f"Saved match distribution: {distribution_path}")
+    print(f"Saved prize-tier values: {tier_values_path}")
     print(f"Saved repeated-seed summary: {repeated_summary_path}")
     print(f"Saved parameter sweep: {sweep_path}")
     print(f"Saved model ablation summary: {ablation_summary_path}")

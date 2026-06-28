@@ -1,14 +1,14 @@
-Prize tier,Ball matches,Star matches,Probability,Odds 1 in,Tier rank
-5+2 Jackpot,5,2,7.1511238420185165e-09,139838160.0,1
-5+1,5,1,1.4302247684037035e-07,6991907.999999999,2
-5+0,5,0,3.218005728908332e-07,3107514.6666666665,3
-4+2,4,2,1.6090028644541663e-06,621502.9333333332,4
-4+1,4,1,3.218005728908332e-05,31075.146666666667,5
-3+2,3,2,7.07961260359833e-05,14125.066666666668,6
-4+0,4,0,7.240512890043748e-05,13811.176296296297,7
-2+2,2,2,0.0010147444731824274,985.4697674418605,8
-3+1,3,1,0.0014159225207196662,706.2533333333333,9
-3+0,3,0,0.0031858256716192487,313.8903703703704,10
-1+2,1,2,0.005327408484207745,187.70852713178292,11
-2+1,2,1,0.02029488946364855,49.27348837209302,12
-2+0,2,0,0.04566350129320923,21.89932816537468,13
+Prize tier,Ball matches,Star matches,Probability,Odds 1 in,Tier rank,Estimated prize value,Expected value contribution,Ticket cost,Source note
+5+2 Jackpot,5,2,7.1511238420185165e-09,139838160.0,1,52000000.0,0.37185843978496286,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+5+1,5,1,1.4302247684037035e-07,6991907.999999999,2,169001.0,0.02417094160849943,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+5+0,5,0,3.218005728908332e-07,3107514.6666666665,3,17555.0,0.005649209057098577,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+4+2,4,2,1.6090028644541663e-06,621502.9333333332,4,1094.0,0.001760249133712858,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+4+1,4,1,3.218005728908332e-05,31075.146666666667,5,101.0,0.0032501857861974154,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+3+2,3,2,7.07961260359833e-05,14125.066666666668,6,48.0,0.0033982140497271986,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+4+0,4,0,7.240512890043748e-05,13811.176296296297,7,33.0,0.0023893692537144367,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+2+2,2,2,0.0010147444731824274,985.4697674418605,8,12.0,0.012176933678189129,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+3+1,3,1,0.0014159225207196662,706.2533333333333,9,9.0,0.012743302686476995,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+3+0,3,0,0.0031858256716192487,313.8903703703704,10,8.0,0.02548660537295399,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+1+2,1,2,0.005327408484207745,187.70852713178292,11,6.0,0.031964450905246466,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+2+1,2,1,0.02029488946364855,49.27348837209302,12,5.0,0.10147444731824275,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.
+2+0,2,0,0.04566350129320923,21.89932816537468,13,3.0,0.1369905038796277,2.5,Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected prizes from the 2020 prize structure; jackpot uses a configurable illustrative value.

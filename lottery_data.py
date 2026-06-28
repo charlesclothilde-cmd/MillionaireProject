@@ -34,6 +34,27 @@ PRIZE_TIERS: dict[tuple[int, int], str] = {
 }
 PRIZE_TIER_RANK: dict[str, int] = {tier: index for index, tier in enumerate(PRIZE_TIERS.values(), start=1)}
 NO_PRIZE_TIER = "No prize"
+TICKET_COST_GBP = 2.50
+PRIZE_VALUE_SOURCE = (
+    "Approximate UK EuroMillions tier values in GBP. Non-jackpot tiers use published expected "
+    "prizes from the 2020 prize structure; jackpot uses a configurable illustrative value."
+)
+APPROXIMATE_PRIZE_VALUES_GBP: dict[str, float] = {
+    "5+2 Jackpot": 52_000_000.0,
+    "5+1": 169_001.0,
+    "5+0": 17_555.0,
+    "4+2": 1_094.0,
+    "4+1": 101.0,
+    "3+2": 48.0,
+    "4+0": 33.0,
+    "2+2": 12.0,
+    "3+1": 9.0,
+    "3+0": 8.0,
+    "1+2": 6.0,
+    "2+1": 5.0,
+    "2+0": 3.0,
+    NO_PRIZE_TIER: 0.0,
+}
 BACKTEST_RESULT_COLUMNS = [
     "Date",
     "Strategy",
@@ -43,6 +64,8 @@ BACKTEST_RESULT_COLUMNS = [
     "Prize tier",
     "Prize tier rank",
     "Prize hit",
+    "Estimated prize value",
+    "Estimated net value",
     "Ticket",
     "Actual",
     "Training draws",
@@ -79,7 +102,6 @@ class TicketScore:
     balance_score: float
     spread_score: float
     pair_score: float
-
 
 def parse_number_list(value: object) -> list[int]:
     if isinstance(value, list):
@@ -267,6 +289,25 @@ def prize_tier_rank(tier: str) -> int:
     return PRIZE_TIER_RANK.get(tier, len(PRIZE_TIER_RANK) + 1)
 
 
+def estimated_prize_value(tier: str, prize_values: dict[str, float] | None = None) -> float:
+    values = APPROXIMATE_PRIZE_VALUES_GBP if prize_values is None else {**APPROXIMATE_PRIZE_VALUES_GBP, **prize_values}
+    return float(values.get(tier, 0.0))
+
+
+def prize_value_table(prize_values: dict[str, float] | None = None) -> pd.DataFrame:
+    values = APPROXIMATE_PRIZE_VALUES_GBP if prize_values is None else {**APPROXIMATE_PRIZE_VALUES_GBP, **prize_values}
+    rows = [
+        {
+            "Prize tier": tier,
+            "Estimated prize value": estimated_prize_value(tier, values),
+            "Tier rank": prize_tier_rank(tier),
+            "Source note": PRIZE_VALUE_SOURCE,
+        }
+        for tier in list(PRIZE_TIERS.values()) + [NO_PRIZE_TIER]
+    ]
+    return pd.DataFrame(rows).sort_values("Tier rank").reset_index(drop=True)
+
+
 def ensure_backtest_schema(results: pd.DataFrame) -> pd.DataFrame:
     normalised = results.copy()
 
@@ -290,6 +331,12 @@ def ensure_backtest_schema(results: pd.DataFrame) -> pd.DataFrame:
 
     if "Prize hit" not in normalised.columns and "Prize tier" in normalised.columns:
         normalised["Prize hit"] = normalised["Prize tier"] != NO_PRIZE_TIER
+
+    if "Estimated prize value" not in normalised.columns and "Prize tier" in normalised.columns:
+        normalised["Estimated prize value"] = normalised["Prize tier"].apply(estimated_prize_value)
+
+    if "Estimated net value" not in normalised.columns and "Estimated prize value" in normalised.columns:
+        normalised["Estimated net value"] = normalised["Estimated prize value"] - TICKET_COST_GBP
 
     for column in BACKTEST_RESULT_COLUMNS:
         if column not in normalised.columns:
@@ -316,7 +363,11 @@ def theoretical_expected_matches() -> dict[str, float]:
     }
 
 
-def theoretical_prize_probabilities() -> pd.DataFrame:
+def theoretical_prize_probabilities(
+    *,
+    ticket_cost: float = TICKET_COST_GBP,
+    prize_values: dict[str, float] | None = None,
+) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     total_ball_combinations = _comb(len(BALL_RANGE), BALL_COUNT)
     total_star_combinations = _comb(len(STAR_RANGE), STAR_COUNT)
@@ -337,6 +388,7 @@ def theoretical_prize_probabilities() -> pd.DataFrame:
             if tier == NO_PRIZE_TIER:
                 continue
             probability = ball_probability * star_probability
+            prize_value = estimated_prize_value(tier, prize_values)
             rows.append(
                 {
                     "Prize tier": tier,
@@ -345,10 +397,31 @@ def theoretical_prize_probabilities() -> pd.DataFrame:
                     "Probability": probability,
                     "Odds 1 in": 1 / probability,
                     "Tier rank": prize_tier_rank(tier),
+                    "Estimated prize value": prize_value,
+                    "Expected value contribution": probability * prize_value,
                 }
             )
 
-    return pd.DataFrame(rows).sort_values("Tier rank").reset_index(drop=True)
+    frame = pd.DataFrame(rows).sort_values("Tier rank").reset_index(drop=True)
+    frame["Ticket cost"] = ticket_cost
+    frame["Source note"] = PRIZE_VALUE_SOURCE
+    return frame
+
+
+def theoretical_expected_return(
+    *,
+    ticket_cost: float = TICKET_COST_GBP,
+    prize_values: dict[str, float] | None = None,
+) -> dict[str, float]:
+    odds = theoretical_prize_probabilities(ticket_cost=ticket_cost, prize_values=prize_values)
+    gross = float(odds["Expected value contribution"].sum()) if not odds.empty else 0.0
+    return {
+        "expected_prize_value": gross,
+        "ticket_cost": ticket_cost,
+        "expected_net_value": gross - ticket_cost,
+        "expected_return_ratio": gross / ticket_cost if ticket_cost else 0.0,
+        "expected_roi": (gross - ticket_cost) / ticket_cost if ticket_cost else 0.0,
+    }
 
 
 def get_weighted_number_scores(
@@ -399,7 +472,6 @@ def get_pair_scores(df: pd.DataFrame, *, half_life: int = 75) -> dict[tuple[int,
 
     high = max(pair_scores.values())
     return {pair: score / high for pair, score in pair_scores.items()}
-
 
 def score_ticket(
     balls: list[int],
@@ -622,6 +694,8 @@ def backtest_strategies(
                     "Prize tier": tier,
                     "Prize tier rank": prize_tier_rank(tier),
                     "Prize hit": tier != NO_PRIZE_TIER,
+                    "Estimated prize value": estimated_prize_value(tier),
+                    "Estimated net value": estimated_prize_value(tier) - TICKET_COST_GBP,
                     "Ticket": f"{ticket[0]} | {ticket[1]}",
                     "Actual": f"{actual[0]} | {actual[1]}",
                     "Training draws": len(history),
@@ -651,8 +725,14 @@ def summarise_backtest(results: pd.DataFrame, *, confidence: float = 0.95) -> pd
                 "prize_hit_rate",
                 "hit_ci_low",
                 "hit_ci_high",
+                "expected_prize_value",
+                "expected_net_value",
+                "return_ratio",
+                "roi",
+                "total_prize_value",
                 "best_prize_tier",
                 "best_prize_rank",
+                "best_prize_value",
             ]
         )
 
@@ -664,6 +744,8 @@ def summarise_backtest(results: pd.DataFrame, *, confidence: float = 0.95) -> pd
         prize_ranks = group.loc[group["Prize hit"], "Prize tier rank"]
         best_rank = int(prize_ranks.min()) if not prize_ranks.empty else prize_tier_rank(NO_PRIZE_TIER)
         best_tier = next((tier for tier, rank in PRIZE_TIER_RANK.items() if rank == best_rank), NO_PRIZE_TIER)
+        expected_prize_value = float(group["Estimated prize value"].mean()) if draws else 0.0
+        expected_net_value = expected_prize_value - TICKET_COST_GBP
 
         rows.append(
             {
@@ -678,14 +760,65 @@ def summarise_backtest(results: pd.DataFrame, *, confidence: float = 0.95) -> pd
                 "prize_hit_rate": hit_count / draws if draws else 0.0,
                 "hit_ci_low": hit_low,
                 "hit_ci_high": hit_high,
+                "expected_prize_value": expected_prize_value,
+                "expected_net_value": expected_net_value,
+                "return_ratio": expected_prize_value / TICKET_COST_GBP if TICKET_COST_GBP else 0.0,
+                "roi": expected_net_value / TICKET_COST_GBP if TICKET_COST_GBP else 0.0,
+                "total_prize_value": float(group["Estimated prize value"].sum()),
                 "best_prize_tier": best_tier,
                 "best_prize_rank": best_rank,
+                "best_prize_value": estimated_prize_value(best_tier),
             }
         )
 
     return (
         pd.DataFrame(rows)
-        .sort_values(["prize_hit_rate", "avg_total_matches"], ascending=False)
+        .sort_values(["expected_prize_value", "prize_hit_rate", "avg_total_matches"], ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def summarise_prize_tier_values(results: pd.DataFrame) -> pd.DataFrame:
+    results = ensure_backtest_schema(results)
+    if results.empty:
+        return pd.DataFrame(
+            columns=[
+                "Strategy",
+                "Prize tier",
+                "Hits",
+                "Hit rate",
+                "Estimated prize value",
+                "Total prize value",
+                "Share of strategy value",
+            ]
+        )
+
+    grouped = (
+        results[results["Prize hit"]]
+        .groupby(["Strategy", "Prize tier", "Prize tier rank"], as_index=False)
+        .agg(Hits=("Prize tier", "size"), **{"Total prize value": ("Estimated prize value", "sum")})
+    )
+    draws = results.groupby("Strategy").size().rename("draws")
+    totals = grouped.groupby("Strategy")["Total prize value"].sum().rename("strategy_value")
+    grouped = grouped.join(draws, on="Strategy").join(totals, on="Strategy")
+    grouped["Hit rate"] = grouped["Hits"] / grouped["draws"]
+    grouped["Estimated prize value"] = grouped["Prize tier"].apply(estimated_prize_value)
+    grouped["Share of strategy value"] = grouped["Total prize value"] / grouped["strategy_value"]
+    grouped["Share of strategy value"] = grouped["Share of strategy value"].fillna(0.0)
+    return (
+        grouped[
+            [
+                "Strategy",
+                "Prize tier",
+                "Hits",
+                "Hit rate",
+                "Estimated prize value",
+                "Total prize value",
+                "Share of strategy value",
+                "Prize tier rank",
+            ]
+        ]
+        .sort_values(["Strategy", "Total prize value", "Prize tier rank"], ascending=[True, False, True])
         .reset_index(drop=True)
     )
 
@@ -808,6 +941,8 @@ def backtest_model_ablation(
                     "Prize tier": tier,
                     "Prize tier rank": prize_tier_rank(tier),
                     "Prize hit": tier != NO_PRIZE_TIER,
+                    "Estimated prize value": estimated_prize_value(tier),
+                    "Estimated net value": estimated_prize_value(tier) - TICKET_COST_GBP,
                     "Ticket": f"{ticket[0]} | {ticket[1]}",
                     "Actual": f"{actual[0]} | {actual[1]}",
                     "Training draws": len(history),
@@ -841,17 +976,24 @@ def summarise_repeated_backtests(repeated: pd.DataFrame, *, confidence: float = 
     for strategy, group in repeated.groupby("Strategy"):
         total_low, total_high = mean_confidence_interval(group["avg_total_matches"], confidence)
         hit_low, hit_high = mean_confidence_interval(group["prize_hit_rate"], confidence)
+        value_low, value_high = mean_confidence_interval(group["expected_prize_value"], confidence)
         paired = group.set_index("seed")
         common_seeds = paired.index.intersection(random_rows.index)
         if strategy == "Random baseline" or common_seeds.empty:
             win_rate_vs_random = None
             avg_edge_vs_random = None
+            avg_value_edge_vs_random = None
         else:
             total_edges = paired.loc[common_seeds, "avg_total_matches"] - random_rows.loc[common_seeds, "avg_total_matches"]
             hit_edges = paired.loc[common_seeds, "prize_hit_rate"] - random_rows.loc[common_seeds, "prize_hit_rate"]
+            value_edges = (
+                paired.loc[common_seeds, "expected_prize_value"]
+                - random_rows.loc[common_seeds, "expected_prize_value"]
+            )
             win_rate_vs_random = float((total_edges > 0).mean())
             avg_edge_vs_random = float(total_edges.mean())
             avg_hit_edge_vs_random = float(hit_edges.mean())
+            avg_value_edge_vs_random = float(value_edges.mean())
 
         if strategy == "Random baseline" or common_seeds.empty:
             avg_hit_edge_vs_random = None
@@ -866,15 +1008,21 @@ def summarise_repeated_backtests(repeated: pd.DataFrame, *, confidence: float = 
                 "mean_prize_hit_rate": float(group["prize_hit_rate"].mean()),
                 "hit_ci_low": hit_low,
                 "hit_ci_high": hit_high,
+                "mean_expected_prize_value": float(group["expected_prize_value"].mean()),
+                "value_ci_low": value_low,
+                "value_ci_high": value_high,
+                "mean_expected_net_value": float(group["expected_net_value"].mean()),
+                "mean_roi": float(group["roi"].mean()),
                 "win_rate_vs_random": win_rate_vs_random,
                 "avg_total_edge_vs_random": avg_edge_vs_random,
                 "avg_hit_edge_vs_random": avg_hit_edge_vs_random,
+                "avg_value_edge_vs_random": avg_value_edge_vs_random,
             }
         )
 
     return (
         pd.DataFrame(rows)
-        .sort_values(["mean_prize_hit_rate", "mean_total_matches"], ascending=False)
+        .sort_values(["mean_expected_prize_value", "mean_prize_hit_rate", "mean_total_matches"], ascending=False)
         .reset_index(drop=True)
     )
 
@@ -927,6 +1075,10 @@ def run_parameter_sweep(
                             "prize_hit_rate": ranked["prize_hit_rate"],
                             "hit_ci_low": ranked["hit_ci_low"],
                             "hit_ci_high": ranked["hit_ci_high"],
+                            "expected_prize_value": ranked["expected_prize_value"],
+                            "expected_net_value": ranked["expected_net_value"],
+                            "return_ratio": ranked["return_ratio"],
+                            "roi": ranked["roi"],
                             "match_0_rate": ranked_distribution["match_0_rate"],
                             "match_1_rate": ranked_distribution["match_1_rate"],
                             "match_2_rate": ranked_distribution["match_2_rate"],
@@ -936,7 +1088,7 @@ def run_parameter_sweep(
                         }
                     )
 
-    return pd.DataFrame(rows).sort_values(["prize_hit_rate", "avg_total_matches"], ascending=False)
+    return pd.DataFrame(rows).sort_values(["expected_prize_value", "prize_hit_rate", "avg_total_matches"], ascending=False)
 
 
 def save_backtest_run(

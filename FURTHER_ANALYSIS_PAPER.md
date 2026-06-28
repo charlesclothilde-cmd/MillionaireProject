@@ -207,11 +207,10 @@ The main limitation is the randomness of the underlying process. EuroMillions dr
 
 The ablation test is short, at 50 draws. The repeated-seed test uses only 10 seeds. The wider parameter grid is bounded to keep compute time manageable. These choices are appropriate for exploratory analysis, but the next stage should increase seeds, expand test windows, and optimize computation before treating any result as robust.
 
-There is also no payout-weighted expected value analysis yet. Prize-hit rate is more meaningful than total matches, but not all prize tiers have equal value. A future version should estimate prize value by tier or ingest historical payout data.
+Payout-weighted expected value is handled in a third companion paper. Prize-hit rate remains useful here, but it is not the final value metric because not all prize tiers have equal value.
 
 ## 7. Conclusion
 
 The further analysis supports a careful conclusion. The ranked model shows small exploratory advantages in some settings, especially in prize-hit rate and complete-miss reduction, but those advantages remain close to random expectation. The model's hot-score component appears important, while spread may deserve less weight. Longer half-lives performed better in the saved bounded grid, but the result should be retested with more seeds and larger windows.
 
 The value of the current work is methodological. The project now has the tools to test lottery strategy ideas responsibly: prize-tier evaluation, confidence intervals, repeated seeds, ablation, match distributions, theoretical baselines, and wider parameter sweeps. Those tools make it easier to distinguish genuine robustness from attractive but fragile historical noise.
-

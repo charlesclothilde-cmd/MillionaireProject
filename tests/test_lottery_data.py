@@ -10,11 +10,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lottery_data import (  # noqa: E402
     NO_PRIZE_TIER,
+    TICKET_COST_GBP,
     backtest_strategies,
+    estimated_prize_value,
     normalize_draws,
+    prize_value_table,
     prize_tier,
     score_match,
+    summarise_backtest,
+    summarise_prize_tier_values,
     theoretical_expected_matches,
+    theoretical_expected_return,
+    theoretical_prize_probabilities,
 )
 
 
@@ -63,6 +70,25 @@ class LotteryDataTests(unittest.TestCase):
         self.assertAlmostEqual(expected["star_matches"], 1 / 3)
         self.assertAlmostEqual(expected["total_matches"], 5 / 6)
 
+    def test_prize_values_and_theoretical_expected_return(self):
+        self.assertGreater(estimated_prize_value("5+2 Jackpot"), estimated_prize_value("5+1"))
+        self.assertEqual(estimated_prize_value(NO_PRIZE_TIER), 0.0)
+
+        table = prize_value_table()
+        self.assertIn("Estimated prize value", table.columns)
+        self.assertIn("Source note", table.columns)
+
+        odds = theoretical_prize_probabilities()
+        self.assertIn("Expected value contribution", odds.columns)
+        self.assertGreater(float(odds["Expected value contribution"].sum()), 0.0)
+
+        expected_return = theoretical_expected_return()
+        self.assertAlmostEqual(expected_return["ticket_cost"], TICKET_COST_GBP)
+        self.assertAlmostEqual(
+            expected_return["expected_net_value"],
+            expected_return["expected_prize_value"] - TICKET_COST_GBP,
+        )
+
     def test_backtest_uses_only_prior_draws(self):
         raw = pd.DataFrame(
             [
@@ -81,7 +107,15 @@ class LotteryDataTests(unittest.TestCase):
         self.assertFalse(results.empty)
         self.assertTrue((results["Training through"] < results["Date"]).all())
         self.assertEqual(sorted(results["Training draws"].unique().tolist()), [4, 5])
+        self.assertIn("Estimated prize value", results.columns)
+        self.assertIn("Estimated net value", results.columns)
 
+        summary = summarise_backtest(results)
+        self.assertIn("expected_prize_value", summary.columns)
+        self.assertIn("roi", summary.columns)
+
+        tier_values = summarise_prize_tier_values(results)
+        self.assertIn("Total prize value", tier_values.columns)
 
 if __name__ == "__main__":
     unittest.main()

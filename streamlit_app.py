@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import pandas as pd
 import streamlit as st
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -22,13 +23,15 @@ from lottery_data import (
     save_backtest_run,
     summarise_backtest,
     summarise_match_distribution,
+    summarise_prize_tier_values,
     summarise_repeated_backtests,
     theoretical_expected_matches,
+    theoretical_expected_return,
     theoretical_prize_probabilities,
 )
 
 
-CACHE_SCHEMA_VERSION = 2
+CACHE_SCHEMA_VERSION = 3
 
 
 @st.cache_data
@@ -213,20 +216,27 @@ with model_tab:
         "prize_hit_rate",
         "hit_ci_low",
         "hit_ci_high",
+        "expected_prize_value",
+        "expected_net_value",
+        "return_ratio",
+        "roi",
+        "total_prize_value",
     ]:
         summary[column] = summary[column].round(3)
+    for column in ["expected_prize_value", "expected_net_value", "total_prize_value"]:
+        summary[column] = summary[column].map(lambda value: f"£{value:,.2f}")
+    for column in ["return_ratio", "roi"]:
+        summary[column] = summary[column].map(lambda value: f"{value:.1%}")
 
     st.dataframe(summary, use_container_width=True, hide_index=True)
 
-    tier_counts = (
-        results[results["Prize hit"]]
-        .groupby(["Strategy", "Prize tier"])
-        .size()
-        .reset_index(name="Hits")
-        .sort_values(["Strategy", "Hits"], ascending=[True, False])
-    )
-    with st.expander("Prize-tier hit distribution"):
-        st.dataframe(tier_counts, use_container_width=True, hide_index=True)
+    with st.expander("Prize-tier value distribution"):
+        tier_values = summarise_prize_tier_values(results).copy()
+        for column in ["Hit rate", "Share of strategy value"]:
+            tier_values[column] = tier_values[column].map(lambda value: f"{value:.1%}")
+        for column in ["Estimated prize value", "Total prize value"]:
+            tier_values[column] = tier_values[column].map(lambda value: f"£{value:,.2f}")
+        st.dataframe(tier_values.drop(columns=["Prize tier rank"]), use_container_width=True, hide_index=True)
 
     with st.expander("Total-match distribution"):
         match_distribution = summarise_match_distribution(results).copy()
@@ -236,10 +246,17 @@ with model_tab:
 
     expected = theoretical_expected_matches()
     st.metric("Theoretical random expected matches", round(expected["total_matches"], 3))
+    expected_return = theoretical_expected_return()
+    col_gross, col_net, col_roi = st.columns(3)
+    col_gross.metric("Theoretical prize EV", f"£{expected_return['expected_prize_value']:,.2f}")
+    col_net.metric("Theoretical net EV", f"£{expected_return['expected_net_value']:,.2f}")
+    col_roi.metric("Theoretical ROI", f"{expected_return['expected_roi']:.1%}")
     with st.expander("Theoretical prize-tier odds"):
         odds = theoretical_prize_probabilities().copy()
         odds["Probability"] = odds["Probability"].map(lambda value: f"{value:.10f}")
         odds["Odds 1 in"] = odds["Odds 1 in"].round(0).astype(int)
+        for column in ["Estimated prize value", "Expected value contribution"]:
+            odds[column] = odds[column].map(lambda value: f"£{value:,.4f}")
         st.dataframe(odds.drop(columns=["Tier rank"]), use_container_width=True, hide_index=True)
 
     config = {
@@ -280,12 +297,23 @@ with research_tab:
         "mean_prize_hit_rate",
         "hit_ci_low",
         "hit_ci_high",
+        "mean_expected_prize_value",
+        "value_ci_low",
+        "value_ci_high",
+        "mean_expected_net_value",
+        "mean_roi",
         "win_rate_vs_random",
         "avg_total_edge_vs_random",
         "avg_hit_edge_vs_random",
+        "avg_value_edge_vs_random",
     ]:
         if column in repeated_summary.columns:
             repeated_summary[column] = repeated_summary[column].round(3)
+    for column in ["mean_expected_prize_value", "value_ci_low", "value_ci_high", "mean_expected_net_value", "avg_value_edge_vs_random"]:
+        if column in repeated_summary.columns:
+            repeated_summary[column] = repeated_summary[column].map(lambda value: "" if pd.isna(value) else f"£{value:,.2f}")
+    if "mean_roi" in repeated_summary.columns:
+        repeated_summary["mean_roi"] = repeated_summary["mean_roi"].map(lambda value: f"{value:.1%}")
 
     st.dataframe(repeated_summary, use_container_width=True, hide_index=True)
 
@@ -312,6 +340,11 @@ with research_tab:
         "prize_hit_rate",
         "hit_ci_low",
         "hit_ci_high",
+        "expected_prize_value",
+        "expected_net_value",
+        "return_ratio",
+        "roi",
+        "total_prize_value",
         "match_0_rate",
         "match_1_rate",
         "match_2_rate",
@@ -320,6 +353,12 @@ with research_tab:
     ]:
         if column in ablation_display.columns:
             ablation_display[column] = ablation_display[column].round(3)
+    for column in ["expected_prize_value", "expected_net_value", "total_prize_value"]:
+        if column in ablation_display.columns:
+            ablation_display[column] = ablation_display[column].map(lambda value: f"£{value:,.2f}")
+    for column in ["return_ratio", "roi"]:
+        if column in ablation_display.columns:
+            ablation_display[column] = ablation_display[column].map(lambda value: f"{value:.1%}")
     st.dataframe(ablation_display, use_container_width=True, hide_index=True)
 
     st.subheader("Parameter sweep")
@@ -365,6 +404,10 @@ with research_tab:
             "prize_hit_rate",
             "hit_ci_low",
             "hit_ci_high",
+            "expected_prize_value",
+            "expected_net_value",
+            "return_ratio",
+            "roi",
             "match_0_rate",
             "match_1_rate",
             "match_2_rate",
@@ -373,6 +416,12 @@ with research_tab:
         ]:
             if column in display_sweep.columns:
                 display_sweep[column] = display_sweep[column].round(3)
+        for column in ["expected_prize_value", "expected_net_value"]:
+            if column in display_sweep.columns:
+                display_sweep[column] = display_sweep[column].map(lambda value: f"£{value:,.2f}")
+        for column in ["return_ratio", "roi"]:
+            if column in display_sweep.columns:
+                display_sweep[column] = display_sweep[column].map(lambda value: f"{value:.1%}")
 
         st.dataframe(display_sweep, use_container_width=True, hide_index=True)
         chart_source = sweep[
@@ -380,8 +429,10 @@ with research_tab:
             & (sweep["recent_draw_count"] == sweep["recent_draw_count"].min())
         ]
         hit_rate_chart = chart_source.pivot(index="half_life", columns="simulations", values="prize_hit_rate")
+        value_chart = chart_source.pivot(index="half_life", columns="simulations", values="expected_prize_value")
         match_chart = chart_source.pivot(index="half_life", columns="simulations", values="avg_total_matches")
         st.line_chart(hit_rate_chart, use_container_width=True)
+        st.line_chart(value_chart, use_container_width=True)
         st.line_chart(match_chart, use_container_width=True)
     else:
         st.info("Choose at least one value for each sweep dimension.")
