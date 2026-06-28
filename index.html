@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Millionaire Project is a EuroMillions strategy analysis lab for ticket generation, behavioral crowding risk, and historical backtesting.">
+    <meta property="og:title" content="Millionaire Project">
+    <meta property="og:description" content="EuroMillions ticket generation, behavioral analysis, and historical backtesting.">
+    <meta property="og:image" content="assets/hero-dashboard.png">
+    <meta property="og:type" content="website">
+    <title>Millionaire Project</title>
+    <style>
+      :root {
+        --ink: #17201d;
+        --muted: #5c6d67;
+        --line: #d9e3df;
+        --surface: #f7faf8;
+        --panel: #ffffff;
+        --accent: #0f8f6f;
+        --accent-dark: #0a624e;
+        --gold: #d9a441;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--surface);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      .shell {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 760;
+      }
+
+      .mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        color: #fff;
+        background: var(--accent-dark);
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .nav-links a {
+        text-decoration: none;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
+        gap: 42px;
+        align-items: center;
+        padding: 34px 0 64px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 16px;
+        color: var(--accent-dark);
+        font-size: 13px;
+        font-weight: 760;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--gold);
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 760px;
+        font-size: clamp(42px, 7vw, 74px);
+        line-height: 0.97;
+        letter-spacing: 0;
+      }
+
+      .lede {
+        margin: 22px 0 0;
+        max-width: 660px;
+        color: var(--muted);
+        font-size: 19px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 28px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 720;
+      }
+
+      .button.primary {
+        color: #fff;
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+
+      .button.secondary {
+        background: #fff;
+      }
+
+      .hero-visual {
+        position: relative;
+        min-height: 360px;
+      }
+
+      .hero-visual img {
+        display: block;
+        width: 100%;
+        border: 1px solid rgba(23, 32, 29, 0.08);
+        border-radius: 8px;
+        box-shadow: 0 28px 70px rgba(29, 45, 39, 0.18);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--line);
+      }
+
+      .stat {
+        padding: 22px;
+        background: var(--panel);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 25px;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .section {
+        padding: 70px 0;
+      }
+
+      .section h2 {
+        margin: 0 0 14px;
+        font-size: clamp(28px, 4vw, 42px);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      .section-copy {
+        max-width: 760px;
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .card {
+        min-height: 190px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .disclaimer {
+        padding: 26px;
+        border: 1px solid #eadbb5;
+        border-radius: 8px;
+        background: #fff9ea;
+      }
+
+      .disclaimer h2 {
+        font-size: 24px;
+      }
+
+      footer {
+        padding: 34px 0 44px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 860px) {
+        .nav {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .nav-links {
+          flex-wrap: wrap;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 30px;
+          padding-top: 20px;
+        }
+
+        .stats,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="shell nav">
+      <div class="brand">
+        <span class="mark">MP</span>
+        <span>Millionaire Project</span>
+      </div>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#inside">Inside</a>
+        <a href="#method">Method</a>
+        <a href="https://millionaireproject.streamlit.app/">Launch app</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="shell hero">
+        <div>
+          <p class="kicker"><span class="dot"></span> EuroMillions analysis lab</p>
+          <h1>Millionaire Project</h1>
+          <p class="lede">
+            A public Streamlit app for exploring EuroMillions tickets through model scoring,
+            behavioral crowding risk, and honest historical backtesting.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="https://millionaireproject.streamlit.app/">Open the app</a>
+            <a class="button secondary" href="https://github.com/charlesclothilde-cmd/MillionaireProject">View on GitHub</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="Dashboard preview">
+          <img src="assets/hero-dashboard.png" alt="Modern lottery analysis dashboard preview">
+        </div>
+      </section>
+
+      <section class="shell stats" aria-label="Project highlights">
+        <div class="stat">
+          <strong>2004-2026</strong>
+          <span>EuroMillions draw history</span>
+        </div>
+        <div class="stat">
+          <strong>5 tabs</strong>
+          <span>Generate, analyze, model, backtest, research</span>
+        </div>
+        <div class="stat">
+          <strong>0 claims</strong>
+          <span>No promise of prediction or profit</span>
+        </div>
+      </section>
+
+      <section id="inside" class="shell section">
+        <h2>Built for analysis, not superstition.</h2>
+        <p class="section-copy">
+          The app combines ticket generation with behavioral signals and historical replay,
+          so each strategy can be inspected before it is trusted.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <h3>Generate</h3>
+            <p>Use the best current ranked variant, anti-crowd generation, or simpler historical strategies.</p>
+          </article>
+          <article class="card">
+            <h3>Analyze Ticket</h3>
+            <p>Score birthday bias, lucky-number pull, round-number pull, playslip patterns, and crowding risk.</p>
+          </article>
+          <article class="card">
+            <h3>Backtesting</h3>
+            <p>Replay strategies against historical draws with prize tiers, value estimates, and match distributions.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="method" class="shell section">
+        <div class="disclaimer">
+          <h2>Important disclaimer</h2>
+          <p>
+            EuroMillions draws are designed to be random. This project is an educational
+            and exploratory analysis tool, not financial advice, gambling advice, or a
+            reliable way to predict future results. Treat generated tickets as entertainment.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="shell">
+      <span>Millionaire Project. Built with Streamlit and GitHub Pages.</span>
+    </footer>
+  </body>
+</html>

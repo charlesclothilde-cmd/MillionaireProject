@@ -17,7 +17,23 @@ This project explores lottery-ticket generation strategies with historical EuroM
 - Compares strategies against a random baseline.
 - Reports prize-tier hits, confidence intervals, match distributions, repeated-seed robustness, ablations, and parameter sweeps.
 
-## Run The App
+## Public App
+
+The public Streamlit app is available at:
+
+```text
+https://millionaireproject.streamlit.app/
+```
+
+The repo also includes a free GitHub Pages landing page in `index.html`. To publish it:
+
+1. Push this repository to GitHub.
+2. Open the repository settings.
+3. Go to **Pages**.
+4. Set the source to deploy from the `main` branch and the repository root.
+5. Save the settings and use the generated `github.io` URL as the free landing page.
+
+## Run The App Locally
 
 Install the Python dependencies:
 
@@ -31,10 +47,12 @@ Start Streamlit:
 streamlit run streamlit_app.py
 ```
 
-The app opens with three tabs:
+The app opens with five tabs:
 
-- **Ticket generator**: generate tickets from simple historical strategies.
-- **Model Lab**: inspect ranked tickets and run walk-forward backtests.
+- **Generate**: create tickets from the best current model, anti-crowd generator, or simple baselines.
+- **Analyze Ticket**: inspect birthday bias, lucky-number pull, playslip patterns, and crowding risk.
+- **Model Lab**: inspect ranked tickets and score components.
+- **Backtesting**: run walk-forward strategy comparisons.
 - **Research Lab**: run repeated-seed checks, ablations, and parameter sweeps.
 
 ## Data
