@@ -1,0 +1,10 @@
+Dimension,Segment,draws,jackpot_wins,jackpot_win_rate,expected_wins_at_overall_rate,lift_vs_overall_rate,won_mean,not_won_mean,difference
+Won vs not won numeric mean,Jackpot prize GBP,0,0,,,,,,
+Won vs not won numeric mean,Ball sum,0,0,,,,,,
+Won vs not won numeric mean,Low ball count,0,0,,,,,,
+Won vs not won numeric mean,High ball count,0,0,,,,,,
+Won vs not won numeric mean,Odd ball count,0,0,,,,,,
+Won vs not won numeric mean,Even ball count,0,0,,,,,,
+Won vs not won numeric mean,Birthday ball count,0,0,,,,,,
+Won vs not won numeric mean,Consecutive pairs,0,0,,,,,,
+Won vs not won numeric mean,Star sum,0,0,,,,,,
