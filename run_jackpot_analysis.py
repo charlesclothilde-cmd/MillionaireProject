@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 import re
+import ssl
 import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
@@ -68,6 +69,7 @@ def _parse_result_page(html: str) -> JackpotPageDetails:
         r"Match 5 and 2 Stars\s+"
         r"(£[\d,]+(?:\.\d+)?)\s+"
         r"([\d,]+)\s+"
+        r"(?:Rollover\s+)?"
         r"([\d,]+)\s+"
         r"(?:£[\d,]+(?:\.\d+)?|-)",
         text,
@@ -105,10 +107,35 @@ def _parse_result_page(html: str) -> JackpotPageDetails:
     )
 
 
-def _fetch_html(url: str) -> str:
-    request = Request(url, headers={"User-Agent": "MillionaireProject/1.0"})
-    with urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8", errors="replace")
+def _fetch_html(url: str, retries: int = 3, backoff_seconds: float = 10.0) -> str:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/126.0 Safari/537.36 MillionaireProject/1.0"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-GB,en;q=0.9",
+    }
+    request = Request(url, headers=headers)
+    context = None
+    try:
+        import certifi
+
+        context = ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        context = ssl.create_default_context()
+
+    for attempt in range(retries):
+        try:
+            with urlopen(request, timeout=30, context=context) as response:
+                return response.read().decode("utf-8", errors="replace")
+        except HTTPError as error:
+            if error.code != 403 or attempt == retries - 1:
+                raise
+            time.sleep(backoff_seconds * (attempt + 1))
+
+    raise RuntimeError(f"Could not fetch {url}")
 
 
 def _load_or_fetch_page(date_value: pd.Timestamp, delay_seconds: float, refresh: bool) -> tuple[str, str]:
@@ -131,6 +158,7 @@ def build_jackpot_details(
     delay_seconds: float = 0.2,
     refresh: bool = False,
     limit: int | None = None,
+    stop_on_forbidden: bool = False,
 ) -> pd.DataFrame:
     OUTPUT_DIR.mkdir(exist_ok=True)
     HTML_CACHE_DIR.mkdir(exist_ok=True)
@@ -147,6 +175,9 @@ def build_jackpot_details(
             details = _parse_result_page(html)
             fetch_error = ""
         except (HTTPError, URLError, TimeoutError, RuntimeError, ValueError) as error:
+            if stop_on_forbidden and isinstance(error, HTTPError) and error.code == 403:
+                print(f"Stopping after 403 rate limit at {draw_date.date()}. Re-run later to resume from cache.")
+                break
             url = RESULT_URL.format(date_slug=draw_date.strftime("%d-%m-%Y"))
             details = JackpotPageDetails(None, None, None, None, "", None, None)
             fetch_error = str(error)
@@ -258,9 +289,19 @@ def main() -> None:
     parser.add_argument("--delay", type=float, default=0.2, help="Delay between uncached result-page requests.")
     parser.add_argument("--refresh", action="store_true", help="Refetch pages even when cached HTML exists.")
     parser.add_argument("--limit", type=int, default=None, help="Analyze only the latest N draws.")
+    parser.add_argument(
+        "--stop-on-forbidden",
+        action="store_true",
+        help="Stop instead of filling rows after a 403 rate-limit response.",
+    )
     args = parser.parse_args()
 
-    details = build_jackpot_details(delay_seconds=args.delay, refresh=args.refresh, limit=args.limit)
+    details = build_jackpot_details(
+        delay_seconds=args.delay,
+        refresh=args.refresh,
+        limit=args.limit,
+        stop_on_forbidden=args.stop_on_forbidden,
+    )
     summary = summarize_jackpot_patterns(details)
 
     parsed = details["Total jackpot winners"].notna().sum()

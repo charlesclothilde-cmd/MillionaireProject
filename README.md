@@ -75,6 +75,7 @@ Four write-ups document the modelling work:
 - `FURTHER_ANALYSIS_PAPER.md`: robustness, ablation, prize-tier, and parameter-sensitivity analysis.
 - `PAYOUT_SCALING_PAPER.md`: payout-aware expected value analysis and scalable experiment outputs.
 - `COLAB_LARGE_EXPERIMENTS_PAPER.md`: Colab scaling, 100-seed validation, and repeated ablation results.
+- `JACKPOT_WIN_PATTERNS_PAPER.md`: jackpot-won enrichment pipeline and timing-analysis plan.
 
 The headline result is deliberately modest: some model configurations are competitive with simple baselines in selected windows, but effects are small, unstable, and close to mathematical random expectations.
 
