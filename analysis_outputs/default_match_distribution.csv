@@ -1,0 +1,6 @@
+Strategy,draws,match_0_rate,match_1_rate,match_2_rate,match_3_plus_rate,max_total_matches,total_match_std
+Cold numbers,200,0.435,0.395,0.145,0.025,3,0.7889233169326408
+Random baseline,200,0.375,0.44,0.165,0.02,4,0.7859866411078498
+Ranked model,200,0.365,0.47,0.145,0.02,3,0.7467261881037788
+Recent hot,200,0.41,0.43,0.14,0.02,3,0.759670981412348
+Balanced mix,200,0.395,0.42,0.18,0.005,3,0.7436228882975564

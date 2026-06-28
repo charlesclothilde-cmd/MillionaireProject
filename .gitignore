@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# OS/editor files
+.DS_Store
+.Rapp.history
+.vscode/
+.idea/
+
+# Streamlit/runtime
+.streamlit/secrets.toml
+
+# Generated analysis runs
+analysis_outputs/[0-9]*_default_backtest.csv
+analysis_outputs/[0-9]*_default_backtest.json
+analysis_outputs/*_runs.csv
+
+# Local backups and scratch data
+*.bak
+euromillions_2021_fixed.csv
+Millionaire Project - Python version.ipynb
+streamlit_app.ipynb
+new_draws_example.local.csv

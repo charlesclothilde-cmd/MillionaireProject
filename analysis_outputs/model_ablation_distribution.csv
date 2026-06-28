@@ -1,0 +1,10 @@
+Strategy,draws,match_0_rate,match_1_rate,match_2_rate,match_3_plus_rate,max_total_matches,total_match_std
+No spread score,50,0.32,0.44,0.16,0.08,4,0.9484724561103501
+Full model,50,0.32,0.46,0.14,0.08,4,0.938083151964686
+No cold score,50,0.34,0.5,0.1,0.06,4,0.8774964387392122
+Only hot score,50,0.38,0.46,0.12,0.04,4,0.856971411425142
+No balance score,50,0.44,0.4,0.12,0.04,4,0.87840765023991
+No pair score,50,0.3,0.58,0.08,0.04,4,0.7909487973314075
+No hot score,50,0.54,0.3,0.14,0.02,4,0.8627861844049196
+Only pair score,50,0.42,0.52,0.04,0.02,3,0.6514598989960932
+Only balance/spread,50,0.5,0.42,0.08,0.0,2,0.6352952069707437
